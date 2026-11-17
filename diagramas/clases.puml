@@ -1,0 +1,156 @@
+@startuml clases
+skinparam classAttributeIconSize 0
+skinparam dpi 150
+skinparam shadowing false
+skinparam class {
+  BackgroundColor #FDFDFD
+  BorderColor #2F4F6F
+  ArrowColor #2F4F6F
+}
+hide empty members
+title Agencia de tours — diagrama de clases (esqueleto: INCOMPLETO, debes actualizarlo)
+
+package modelo {
+  abstract class Tarifable <<ABC>> {
+    {static} MONEDA : str
+    {static} IVA : float
+    + cotizar(dias:int) : float
+    + cotizar_con_iva(dias:int) : float
+    # {abstract} _calcular(dias:int) : float
+    {static} + redondear(v:float) : float
+    {classifier} + moneda() : str
+  }
+  class Clave {
+    {static} - _contadores : dict
+    {static} - _candado : Lock
+    {static} + es_valida(t:str) : bool
+    {classifier} + siguiente(prefijo:str) : str
+    {classifier} + registrar(clave:str)
+  }
+  abstract class Tour {
+    - __clave : str
+    # _nombre : str
+    # _precio_base : float
+    + tipo : str <<property>>
+    + {abstract} factor() : float
+    + {abstract} valor_atributo() : int
+    + recargo() : float
+    + copiar() : Tour
+    {static} + crear(prefijo, nombre, precio, valor, clave) : Tour
+  }
+  class Capacidad {
+    + recargo() : float
+    + etiquetas() : list[str]
+  }
+  class ConTransporte {
+    {static} RECARGO : float = ?
+  }
+  class ConGuia {
+    {static} RECARGO : float = ?
+  }
+  class Cultural <<CUL>> {
+    # _sitios : int  (1..10)
+    {static} ESCALA : int = ?
+    + factor() : float
+  }
+  class Aventura <<AVE>> {
+    # _dificultad : int  (1..5)
+    {static} ESCALA : int = ?
+    + factor() : float
+  }
+  class Gastronomico <<GAS>> {
+    # _degustaciones : int  (1..12)
+    {static} ESCALA : int = ?
+    + factor() : float
+    + recargo() : float  ' colisión
+  }
+
+  abstract class Nivel <<Singleton>> {
+    {static} - _instancia : Nivel
+    + __new__(cls) : Nivel
+    + {abstract} descuento() : float
+    {static} + desde_nombre(n:str) : Nivel
+  }
+  class Basico
+  class Plata
+  class Oro
+  class Viajero <<VIA>> {
+    - __clave : str
+    # _nombre, _correo
+    {classifier} + desde_texto(t:str) : Viajero
+    + descuento() : float
+  }
+  class Reserva <<RSV>> {
+    {static} TRANSICIONES : dict
+    - __estado : str
+    - __lineas : list[Linea]
+    # _candado : Lock
+    + alertada : bool
+    + agregar(tour, dias) : Linea
+    + cambiar_estado(nuevo:str)
+    + subtotal() / descuento() / total()
+    + __getstate__() / __setstate__()
+  }
+  class "Reserva.Linea" as Linea {
+    - __contenedora : Reserva
+    - __tour : Tour
+    - __dias : int
+    + importe() : float
+  }
+  class Folleto {
+    - __tours : dict[str, Tour]
+    + agregar(*tours) : int
+    + buscar(**criterios) : list
+    + ordenados(por, descendente) : list
+    + resumen_por_tipo() : dict
+  }
+}
+package funcional {
+  class Regla {
+    + __call__(tour) : bool
+    + y(o) / o(o) / negar() : Regla
+  }
+}
+package concurrencia {
+  abstract class TareaPeriodica {
+    - _alto : Event
+    + run() / detener()
+    + {abstract} ejecutar()
+  }
+}
+package servicio {
+  class ServicioTours <<fachada>> {
+    {static} PLAZO = 5
+    + __enter__() / __exit__()
+    + revisar() : tuple[int,int]
+    + conteo_por_estado() / ingresos_por_tipo() / top_tours()
+  }
+  class "ServicioTours.Monitor" as Monitor
+}
+package eventos {
+  abstract class Oyente {
+    + {abstract} notificar(e, d)
+  }
+}
+
+Tarifable <|-- Tour
+Capacidad <|-- ConTransporte
+Capacidad <|-- ConGuia
+Tour <|-- Cultural
+Tour <|-- Aventura
+Tour <|-- Gastronomico
+Nivel <|-- Basico
+Nivel <|-- Plata
+Nivel <|-- Oro
+Viajero --> "1" Nivel
+Reserva --> "1" Viajero
+Linea --> "1" Tour
+Folleto o-- "0..*" Tour
+Tour ..> Clave
+TareaPeriodica <|-- Monitor
+Monitor --> ServicioTours : servicio
+ServicioTours --> Folleto
+ServicioTours --> "0..*" Oyente
+Regla ..> Tour
+note "Faltan: capacidades de cada subtipo,\nrelación transacción–línea y anidamiento\ndel monitor. Complétalos en tu entrega." as N1
+@enduml
